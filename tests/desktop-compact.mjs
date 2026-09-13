@@ -79,6 +79,16 @@ try {
   });
   await expect(a).toBeVisible();
   await expect(b).toBeVisible();
+  // Chromium does not expose custom bou:// fetches in Resource Timing. Its
+  // debugger script inventory includes already-loaded dynamic entry chunks.
+  const loadedResources = [];
+  const scripts = await child.context().newCDPSession(child);
+  scripts.on("Debugger.scriptParsed", ({ url }) => loadedResources.push(url));
+  await scripts.send("Debugger.enable");
+  await scripts.send("Debugger.disable");
+  await scripts.detach();
+  expect(loadedResources.some(url => /\/App-[^/]+\.js/.test(url))).toBe(false);
+  expect(loadedResources.some(url => /\/FloatingApp-[^/]+\.js/.test(url))).toBe(true);
   const size = () =>
     app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()

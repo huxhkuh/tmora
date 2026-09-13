@@ -33,7 +33,7 @@ import { deletionPreview } from "./deletion.js";
 import Projects, { Clients } from "./Projects.jsx";
 import Reports from "./Reports.jsx";
 import Settings from "./Settings.jsx";
-import FocusTools, { ClockScreen } from "./FocusTools.jsx";
+import FocusTools from "./FocusTools.jsx";
 const getNav = () => [
   ["today", tr("היום"), Clock3],
   ["projects", tr("פרויקטים"), Folder],
@@ -184,20 +184,6 @@ export default function App() {
   if (!state)
     return (
       <main className="fatal">{tr("פותחים את סביבת העבודה שלך\u2026")}</main>
-    );
-  if (
-    window.bouDesktop &&
-    new URLSearchParams(location.search).get("floating") === "1"
-  )
-    return (
-      <div className="desktop-floating">
-        <ClockScreen
-          state={state}
-          mutate={mutate}
-          close={() => window.bouDesktop.closeFloating()}
-          showEntry={(entry) => window.bouDesktop.showEntry(entry.id)}
-        />
-      </div>
     );
 
   const titles = {

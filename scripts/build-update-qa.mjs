@@ -33,6 +33,10 @@ for (const version of ["9.0.0", "9.0.1"]) {
     nsis: { ...config.nsis, guid, createDesktopShortcut: false, createStartMenuShortcut: false, shortcutName: "Temura Update QA", artifactName: "Bou-Time-${version}-x64-Setup.exe" },
   });
   const configPath = path.join(root, `builder-${version}.json`);
+  if (config.nsis.include) config.nsis.include = path.resolve(config.nsis.include);
+  // The old release did not compress installed files. Test the real transition
+  // to compressed files rather than retrofitting the new hook into the old app.
+  if (version === "9.0.0" && baselineProject) delete config.nsis.include;
   await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   await build({ ...(version === "9.0.0" && baselineProject ? { projectDir: baselineProject } : {}), targets: Platform.WINDOWS.createTarget(["nsis"]), config: configPath, publish: "never" });
 }

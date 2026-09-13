@@ -35,6 +35,11 @@ export default function CompactClock({
     [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const timer = state.timer;
+  useEffect(() => {
+    if (window.bouDesktop) document.title = timer
+      ? tr("{0} · תמורה", [hms(elapsed(timer, now))])
+      : tr("תמורה · מעקב זמן עבודה");
+  }, [timer, now, prefs.language]);
   const projects = state.projects.filter(
     (p) => !p.archived || p.id === timer?.projectId,
   );

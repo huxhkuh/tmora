@@ -4,6 +4,49 @@ import { EventEmitter } from "node:events";
 import { createRequire } from "node:module";
 const { createUpdates } = createRequire(import.meta.url)("../desktop/updates.cjs");
 const defer = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
+test("updater loads only on an explicit check, once; safeguards precede its first request", async () => {
+  let loads = 0, checks = 0;
+  const gate = defer();
+  const updater = new EventEmitter();
+  updater.checkForUpdates = async () => {
+    checks++;
+    assert.equal(updater.autoDownload, false);
+    assert.equal(updater.autoInstallOnAppQuit, false);
+    assert.equal(updater.allowDowngrade, false);
+    assert.equal(updater.allowPrerelease, false);
+    assert.equal(updater.disableWebInstaller, true);
+    assert.equal(updater.listenerCount("error"), 1);
+    await gate.promise;
+    return { isUpdateAvailable: false };
+  };
+  const options = { version: "1.5.5", publish() {}, loadUpdater() { loads++; return updater; } };
+  const controller = createUpdates(options);
+  assert.equal(controller.snapshot().phase, "idle");
+  for (const action of ["download", "install", "cancel", "invalid"]) await controller.action(action);
+  assert.equal(loads, 0);
+  const check = controller.action("check");
+  await controller.action("check");
+  assert.equal(loads, 1); assert.equal(checks, 1);
+  gate.resolve(); await check;
+  await controller.action("check");
+  assert.equal(loads, 1); assert.equal(checks, 2);
+  const portable = createUpdates({ ...options, unavailable: "portable" });
+  await portable.action("check");
+  assert.equal(loads, 1);
+});
+
+test("failed lazy initialization is recoverable and does not expose internal errors", async () => {
+  let attempts = 0;
+  const updater = new EventEmitter();
+  updater.checkForUpdates = async () => ({ isUpdateAvailable: false });
+  const controller = createUpdates({ version: "1.5.5", publish() {}, loadUpdater() {
+    if (++attempts === 1) throw Error("private path");
+    return updater;
+  } });
+  assert.equal((await controller.action("check")).phase, "error");
+  assert.doesNotMatch(JSON.stringify(controller.snapshot()), /private path/);
+  assert.equal((await controller.action("check")).phase, "current");
+});
 function setup(extra = {}) {
   const updater = new EventEmitter();
   let checks = 0, downloads = 0, installs = 0;

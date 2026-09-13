@@ -1,6 +1,6 @@
 {
   "name": "bou-time",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -21,15 +21,15 @@
     "electron-updater": "6.8.9"
   },
   "devDependencies": {
+    "@fontsource-variable/heebo": "^5.3.0",
     "@playwright/test": "^1.55.0",
     "electron": "44.2.0",
     "electron-builder": "26.15.3",
     "fake-indexeddb": "^6.0.0",
-    "vite": "^7.0.0",
+    "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "lucide-react": "^0.468.0",
-    "@fontsource-variable/heebo": "^5.3.0"
+    "vite": "^7.0.0"
   },
   "main": "desktop/main.cjs",
   "description": "Hebrew personal project time tracker",
@@ -72,6 +72,7 @@
       ]
     },
     "nsis": {
+      "include": "desktop/installer.nsh",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,

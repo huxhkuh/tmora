@@ -9,7 +9,7 @@ import tempfile
 from pywinauto import Application
 
 root = Path(tempfile.mkdtemp(prefix="hardened-", dir=Path("../../work").resolve()))
-exe = Path("../windows/win-unpacked/Bou Time.exe").resolve()
+exe = Path(os.environ.get("BOU_TEST_EXE", "../windows/win-unpacked/Bou Time.exe")).resolve()
 env = os.environ.copy()
 env.update(BOU_DESKTOP_TEST="1", BOU_TEST_PROFILE=str(root / "profile"))
 env.pop("ELECTRON_RUN_AS_NODE", None)

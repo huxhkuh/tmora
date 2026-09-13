@@ -1,4 +1,89 @@
-# Memory and packaging, version 1.5.4
+# Memory and packaging
+
+## Version 1.5.5 — second measured pass
+
+- Load `electron-updater` only after an explicit update check. Opening settings
+  does not load it. Once needed, it remains available for the rest of that app
+  session; none of its download, checksum, cancellation or restart checks change.
+- Give the native floating window a separate entry point. It does not load the
+  approximately 70 KB main UI chunk, run the main dashboard's effects/clock, or
+  retain saved entries/tasks in its React state. The same transactional store
+  still performs all timer mutations, and long-timer correction opens the main
+  window. Browser Picture-in-Picture and focus mode retain their existing paths.
+- Reuse the current language's two number formatters for hours/currency. In a
+  20,000-amount Node microbenchmark, formatting fell from 459 ms to 23 ms with an
+  identical output checksum. This is not an application-wide speed multiplier.
+- The NSIS installer uses Windows `compact /EXE:XPRESS16K` for an explicit list of
+  installed application files. There is no recursive directory compression,
+  AppData access, wildcard traversal, OS compression setting or elevated task.
+  Failure is nonfatal: an unsupported filesystem keeps a normal installation.
+
+Windows [documents executable compression](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/compact)
+for frequently read, infrequently modified files on NTFS. This reduces physical
+**size on disk**, not logical file lengths or installer download size. It adds
+compression work at installation and decompression work through Windows when
+reading. The initial 340 MB test copy took about four seconds to compress to
+181 MB; its executable hash and hardened startup were unchanged. Use the
+installed-build QA measurements below for delivery verification. Portable builds
+do not run this installer hook; their extraction remains unchanged. User data,
+the updater's installer cache and temporary extraction are outside these totals.
+
+### Additional RAM savings
+
+Mean of two fresh-profile runs per version on this machine, same 1,000-entry
+fixture and protocol as below; USS in MiB. Measurements precede any explicit
+update check. These small differences are subject to Windows/GC variation.
+
+| Scenario | 1.5.4 | 1.5.5 | Additional reduction |
+| --- | ---: | ---: | ---: |
+| Empty, idle | 141.84 | 137.92 | 3.92 MiB / 2.8% |
+| 1,000 entries, idle | 187.04 | 184.25 | 2.79 MiB / 1.5% |
+| 1,000 entries, running | 185.27 | 182.81 | 2.46 MiB / 1.3% |
+| Running + floating | 207.13 | 203.47 | 3.66 MiB / 1.8% |
+| Main minimized + floating | 202.93 | 195.28 | 7.65 MiB / 3.8% |
+
+Raw files: `work/performance/1.5.4-round2-before.json`, `1.5.4-confirm.json`,
+`1.5.5-final-after.json`, `1.5.5-confirm.json`. The intermediate run without lazy
+updater loading did not show a clear aggregate RAM improvement; we do not claim
+that the floating-window split alone reduces overall RAM by a measured percentage.
+
+Trying `build.compression=maximum` did not reduce downloads: this builder already
+uses level 9 for 7z. That configuration experiment was discarded. Version 1.5.5
+downloads remain about 103 MB; no large download-size reduction is claimed.
+
+### Verification and reproduction
+
+49 unit tests include exact Hebrew/English numeric output and lazy-updater
+initialization, concurrency, safeguards and failure recovery. All 17 browser
+scenarios passed; a focus test timed out on its initial button click in the first
+parallel run and the entire four-test focus suite passed when rerun alone.
+Packaged compact-window tests inspect the actual loaded script inventory and
+verify both directions of timer/language/theme synchronization. The packaged
+lazy-updater test checks absence at startup/settings and a real public feed check.
+The prior 1.5.4 history profile was opened by old/new production code: all 1,000
+entries, prices, projects, clients and the active timer matched exactly.
+
+For installer compression QA, set `BOU_QA_BASELINE_ASAR` to the previous release's
+ASAR, build with `node scripts/build-update-qa.mjs`, and run
+`node tests/desktop-updates.mjs --install` with `BOU_VERIFY_COMPRESSION=1` and
+`BOU_PERF_PYTHON` set to a Windows Python executable. This verifies actual update,
+physical compression, file hashes, and reinstalling over already-compressed files.
+Use `python scripts/windows-disk.py <isolated-install-directory>` to read logical
+and physical sizes without changing files. Non-NTFS fallback is handled by the
+nonfatal hook; no separate FAT/exFAT installation was performed on this machine.
+
+The actual isolated NSIS upgrade and reinstall passed: 339.85 MB logical versus
+181.31 MB physical (46.6% less space). This includes the separate QA identity's
+small wrapper/installer files. Client/project/task/timer state and bundled file
+hashes remained unchanged, and automatic relaunch succeeded. Evidence is in
+`../../work/update-qa-GqTyPR/result.json` and `disk.json`. The update's differential
+download transferred 1.02 MB in this particular QA run; this is not a general
+promise about public updates. The final production setup is 103,364,669 bytes,
+portable is 103,148,219 bytes. Hardened production/portable startup, native
+visibility, compact clock, security/ASAR-tamper checks, bootstrapper validation
+and release metadata validation also passed. No personal installation was replaced.
+
+## Version 1.5.4
 
 No storage schema, app identity, feature, security fuse, updater validation or
 timer accounting was removed. The app still uses Electron 44.2.0.

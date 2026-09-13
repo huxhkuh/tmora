@@ -1,6 +1,6 @@
 // Only the main process owns the updater. Renderer messages cannot set a feed,
 // executable path or installation arguments.
-function createUpdates({ updater, version, unavailable = null, publish, confirmInstall, validateUpdate, verifyDownloaded }) {
+function createUpdates({ updater, loadUpdater, version, unavailable = null, publish, confirmInstall, validateUpdate, verifyDownloaded }) {
   let status = { phase: unavailable ? "unavailable" : "idle", currentVersion: version, reason: unavailable, revision: 0 };
   let busy = false;
   let token;
@@ -10,7 +10,7 @@ function createUpdates({ updater, version, unavailable = null, publish, confirmI
     publish({ ...status });
   };
   const fail = () => set({ phase: "error", message: "העדכון לא הושלם. בדוק את החיבור לאינטרנט ואת המקום הפנוי ונסה שוב. הגרסה הנוכחית זמינה לעבודה." });
-  if (updater) {
+  function configureUpdater() {
     updater.autoDownload = false;
     updater.autoInstallOnAppQuit = false;
     updater.allowDowngrade = false;
@@ -25,10 +25,11 @@ function createUpdates({ updater, version, unavailable = null, publish, confirmI
       set({ ...status, phase: "downloading", percent: Math.min(100, finite(p.percent)), transferred: finite(p.transferred), total: finite(p.total), revision: status.revision + 1 });
     });
   }
+  if (updater) configureUpdater();
   return {
     snapshot: () => ({ ...status }),
     async action(action) {
-      if (unavailable || !updater) return { ...status };
+      if (unavailable || (!updater && !loadUpdater)) return { ...status };
       if (action === "cancel") {
         if (status.phase === "downloading" && token) {
           set({ phase: "cancelling", version: status.version });
@@ -45,6 +46,10 @@ function createUpdates({ updater, version, unavailable = null, publish, confirmI
       try {
         if (action === "check") {
           set({ phase: "checking" });
+          if (!updater) {
+            updater = loadUpdater();
+            configureUpdater();
+          }
           const result = await updater.checkForUpdates();
           token = result?.cancellationToken;
           if (result?.isUpdateAvailable) {

@@ -8,6 +8,7 @@ if (!path.resolve(source.profile).startsWith(path.resolve('../../work/performanc
 const profile=await fs.mkdtemp(path.resolve('../../work/upgrade-history-'));
 await fs.cp(source.profile,profile,{recursive:true});
 const current=(await fs.readFile('../../work/security-test-exe.txt','utf8')).trim();
+const expectedVersion=JSON.parse(await fs.readFile('package.json','utf8')).version;
 async function inspect(executablePath) {
  const app=await electron.launch({executablePath,args:[],env:{...process.env,ELECTRON_RUN_AS_NODE:undefined,BOU_DESKTOP_TEST:'1',BOU_TEST_PROFILE:profile}});
  try {
@@ -20,7 +21,7 @@ async function inspect(executablePath) {
  }finally{await app.close();}
 }
 const before=await inspect(source.exe),after=await inspect(current);
-expect(before.version).toBe('1.5.3');expect(after.version).toBe('1.5.4');
+expect(before.version).not.toBe(expectedVersion);expect(after.version).toBe(expectedVersion);
 expect(before.state.entries).toHaveLength(1000);expect(before.state.timer.runningSince).toBeGreaterThan(0);
 expect(after.state).toEqual(before.state);
 console.log(JSON.stringify({passed:true,from:before.version,to:after.version,entries:1000,checks:['all entry segments, descriptions and historical prices unchanged','projects and clients unchanged','active timer timestamps unchanged'],profile}));

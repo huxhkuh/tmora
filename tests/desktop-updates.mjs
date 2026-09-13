@@ -6,7 +6,7 @@ import { createReadStream } from "node:fs";
 import path from "node:path";
 import http from "node:http";
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { fresh } from "../src/domain.js";
 if (!process.argv.includes("--install")) throw Error("Pass --install to install the isolated QA application.");
 const root = (await fs.readFile("../../work/latest-update-qa.txt", "utf8")).trim();
@@ -187,6 +187,29 @@ try {
   expect(await readData()).toEqual(before);
   await check(); await expect(section()).toContainText("אתה משתמש בגרסה העדכנית");
   expect(errors).toEqual([]);
+  if (process.env.BOU_VERIFY_COMPRESSION === "1") {
+    const measure = () => JSON.parse(execFileSync(process.env.BOU_PERF_PYTHON,
+      ["scripts/windows-disk.py", installDir], { encoding: "utf8", windowsHide: true }));
+    const verifyFiles = async () => {
+      for (const file of ["Temura Update QA.exe", "resources/app.asar", "icudtl.dat", "LICENSES.chromium.html"])
+        expect(await hash(path.join(installDir, file))).toBe(await hash(path.join(root, "9.0.1/win-unpacked", file)));
+    };
+    const disk = measure();
+    expect(disk.logical - disk.physical).toBeGreaterThan(100_000_000);
+    await verifyFiles();
+    await app.close(); app = null;
+    // Reinstall over already-compressed files, then verify byte contents, state,
+    // relaunch and that the new installation remains compressed.
+    await run(payload, ["/S", "/currentuser", `/D=${installDir}`]);
+    await launch();
+    expect(await readData()).toEqual(before);
+    await verifyFiles();
+    const reinstalled = measure();
+    expect(reinstalled.logical - reinstalled.physical).toBeGreaterThan(100_000_000);
+    await fs.writeFile(path.join(root, "disk.json"), JSON.stringify({ disk, reinstalled }, null, 2));
+    console.log(JSON.stringify({ compressedInstallVerified: true, logical: disk.logical, physical: disk.physical,
+      reinstallOverCompressedFiles: true, hashesAndDataUnchanged: true }));
+  }
   await fs.writeFile(path.join(root, "result.json"), JSON.stringify({ passed: true, delta, checks: ["real cache seeded by NSIS", "no update", "network error", "server ignores Range: immediate verified full fallback", "cancel/retry", "differential SHA-512 verified", "normal exit does not install", "ready download reused after restart without payload transfer", "corrupt download rejected", "missing cache falls back to full download", "installer modified after download rejected before execution", "defer restart", "real NSIS update and automatic relaunch", "client/project/task/running timer unchanged"] }, null, 2));
   console.log(JSON.stringify({ passed: true, delta, root }));
 } finally {

@@ -18,6 +18,18 @@ Download cancellation cleans up the temporary payload. Installation itself canno
 
 The graphical bootstrapper targets .NET Framework 4.x APIs available on supported Windows 10/11; [.NET Framework 4.8 is included with modern Windows](https://learn.microsoft.com/en-us/dotnet/framework/install/on-server-2019). No .NET SDK is required by end users.
 
+### Installed size, 1.5.5+
+
+`desktop/installer.nsh` applies optional Windows XPRESS16K executable compression
+to exact application filenames at the end of installation/update. Keep this list
+scoped to shipped application files; never use `/S`, broad wildcards, AppData or
+`/CompactOS`. Compression failures must remain nonfatal. Logical file sizes and
+hashes stay unchanged; only physical space on NTFS is reduced. The portable
+payload does not run this hook. See `PERFORMANCE.md` for measurements and the
+`BOU_VERIFY_COMPRESSION=1` isolated installation/reinstallation check. Verify that
+the already-compressed installation can be overwritten and relaunched before
+shipping later installer changes.
+
 ## Graphical installation test (opt-in)
 
 `tests/installer-e2e.py` requires Python, `pywinauto` and `psutil`. Run it in a disposable Windows user account or test machine with `python tests/installer-e2e.py --installer ../windows/Bou-Install.exe --install`. This performs a **real per-user installation or update** and leaves the application installed. It verifies download cancellation, retry, installation, unchanged existing application data and launching with an isolated test profile. The final `--install` flag is required to make this side effect explicit. Screenshots are saved to the temporary directory reported by the test.

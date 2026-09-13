@@ -1,6 +1,7 @@
 import { tr, locale } from "./i18n.js";
 import { validateTasks } from "./tasks.js";
 import { checkBackupTree } from "./backup-safety.js";
+import { formatHours, formatMoney } from "./number-format.js";
 export const TZ = "Asia/Jerusalem";
 export const HOUR = 3600000;
 export const fresh = () => ({
@@ -90,13 +91,8 @@ export function hms(ms) {
     .join(":");
 }
 export const hours = (ms) =>
-  (ms / HOUR).toLocaleString(locale(), { maximumFractionDigits: 2 });
-export const money = (n) =>
-  n.toLocaleString(locale(), {
-    style: "currency",
-    currency: "ILS",
-    maximumFractionDigits: 2,
-  });
+  formatHours(ms / HOUR, locale());
+export const money = (n) => formatMoney(n, locale());
 export const pricing = (p) => ({
   type: p.priceType,
   amount: p.price === null ? null : Number(p.price),

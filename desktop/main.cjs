@@ -197,10 +197,17 @@ else {
       : process.env.PORTABLE_EXECUTABLE_FILE
         ? "זוהי גרסה ניידת. כדי לקבל עדכונים פנימיים, התקן את תמורה באמצעות המתקין מ־GitHub."
         : null;
-    const updater = unavailable ? null : require("electron-updater").autoUpdater;
-    if (updater) { updater.logger = null; guardRangeDownloads(updater.httpExecutor); }
+    // This library is only needed after an explicit update check. Ordinary time
+    // tracking, including the settings screen, need not load it into RAM.
+    let updater;
     const updates = createUpdates({
-      updater, version: app.getVersion(), unavailable,
+      loadUpdater: () => {
+        updater = require("electron-updater").autoUpdater;
+        updater.logger = null;
+        guardRangeDownloads(updater.httpExecutor);
+        return updater;
+      },
+      version: app.getVersion(), unavailable,
       validateUpdate: updateIdentity,
       verifyDownloaded: (identity) => verifyInstaller(updater.installerPath, identity),
       publish: (status) => {
