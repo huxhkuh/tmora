@@ -11,6 +11,7 @@ import {
   duration,
   hours,
   timerSegments,
+  recentProjects,
 } from "./domain.js";
 export function Allocation({ state, entries }) {
   const total = entries.reduce((n, e) => n + duration(e.segments), 0);
@@ -88,13 +89,10 @@ export default function Dashboard({
   const dayAll = [...dayEntries, ...sliceEntries(current, today, today)],
     weekAll = [...weekEntries, ...sliceEntries(current, week, today)];
   const sum = (es) => es.reduce((n, e) => n + duration(e.segments), 0);
-  const projects = useMemo(() => {
-    const latest = new Map();
-    for (const entry of state.entries) latest.set(entry.projectId,
-      Math.max(latest.get(entry.projectId) || 0, entry.segments.at(-1)?.end || 0));
-    return state.projects.filter(p => !p.archived)
-      .sort((a, b) => (latest.get(b.id) || 0) - (latest.get(a.id) || 0)).slice(0, 4);
-  }, [state.projects, state.entries]);
+  const projects = useMemo(
+    () => recentProjects(state, 4),
+    [state.projects, state.entries],
+  );
   return (
     <>
       <Timer {...{ state, now, mutate, notify, newProject, editEntry }} />
