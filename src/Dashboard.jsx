@@ -11,6 +11,7 @@ import {
   duration,
   hours,
   timerSegments,
+  recentProjects,
 } from "./domain.js";
 export function Allocation({ state, entries }) {
   const total = entries.reduce((n, e) => n + duration(e.segments), 0);
@@ -86,24 +87,7 @@ export default function Dashboard({
     dayAll = sliceEntries(all, today, today),
     weekAll = sliceEntries(all, week, today);
   const sum = (es) => es.reduce((n, e) => n + duration(e.segments), 0);
-  const projects = [...state.projects]
-    .filter((p) => !p.archived)
-    .sort(
-      (a, b) =>
-        Math.max(
-          0,
-          ...state.entries
-            .filter((e) => e.projectId === b.id)
-            .map((e) => e.segments.at(-1).end),
-        ) -
-        Math.max(
-          0,
-          ...state.entries
-            .filter((e) => e.projectId === a.id)
-            .map((e) => e.segments.at(-1).end),
-        ),
-    )
-    .slice(0, 4);
+  const projects = recentProjects(state, 4);
   return (
     <>
       <Timer {...{ state, now, mutate, notify, newProject, editEntry }} />

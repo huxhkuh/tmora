@@ -81,6 +81,20 @@ export const timerSegments = (t, now) =>
       ]
     : [];
 export const elapsed = (t, now = Date.now()) => duration(timerSegments(t, now));
+// Active projects, most recently worked on first. Read the entries once: a
+// comparator that scans them rescans everything per comparison, and spreading
+// one project's entries into Math.max throws above roughly 125k of them.
+export function recentProjects(state, limit) {
+  const lastEnd = new Map();
+  for (const e of state.entries) {
+    const end = e.segments.at(-1).end;
+    if (end > (lastEnd.get(e.projectId) ?? 0)) lastEnd.set(e.projectId, end);
+  }
+  return state.projects
+    .filter((p) => !p.archived)
+    .sort((a, b) => (lastEnd.get(b.id) ?? 0) - (lastEnd.get(a.id) ?? 0))
+    .slice(0, limit);
+}
 export function hms(ms) {
   const s = Math.floor(Math.max(0, ms) / 1000);
   return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60]

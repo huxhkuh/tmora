@@ -18,6 +18,7 @@ import {
   mergeBackup,
   csv,
   overlap,
+  recentProjects,
 } from "../src/domain.js";
 const fixture = () => ({
   ...fresh(),
@@ -259,4 +260,39 @@ test("CSV is Hebrew BOM/CRLF and escaped, protects formulas, keeps exact hours",
   assert.ok(out.includes("\r\n"));
   assert.ok(out.includes('\'=SUM(1,2) ""שלום""'));
   assert.ok(out.includes(String(1 / 3600)));
+});
+test("recent projects order by last saved work, skip the archive and any history size", () => {
+  const s = fixture();
+  s.projects.push(
+    { ...s.projects[0], id: "p3", name: "ארכיון", archived: true },
+    { ...s.projects[0], id: "p4", name: "חדש" },
+  );
+  const entry = (id, projectId, day) => ({
+    id,
+    projectId,
+    segments: [{ start: wallTime(day, "09:00"), end: wallTime(day, "10:00") }],
+  });
+  s.entries = [
+    entry("e1", "p1", "2026-09-01"),
+    entry("e2", "p2", "2026-09-08"),
+    entry("e3", "p3", "2026-09-09"),
+    entry("e4", "p1", "2026-09-07"),
+  ];
+  // p2 worked last, then p1; p4 never worked and the archived p3 is excluded.
+  assert.deepEqual(
+    recentProjects(s, 4).map((p) => p.id),
+    ["p2", "p1", "p4"],
+  );
+  assert.deepEqual(
+    recentProjects(s, 2).map((p) => p.id),
+    ["p2", "p1"],
+  );
+  assert.deepEqual(
+    s.projects.map((p) => p.id),
+    ["p1", "p2", "p3", "p4"],
+  );
+  // One project may hold more entries than a spread can pass as arguments.
+  const many = entry("m", "p4", "2026-09-10");
+  s.entries = Array.from({ length: 150000 }, () => many);
+  assert.equal(recentProjects(s, 1)[0].id, "p4");
 });
