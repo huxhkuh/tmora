@@ -71,6 +71,10 @@
   }
 }
 @media print {
+  html:has(.client-report-section) {
+    background: white !important;
+    color-scheme: light;
+  }
   body:has(.client-report-section) {
     background: white !important;
   }
