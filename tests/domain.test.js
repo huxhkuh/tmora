@@ -1,3 +1,4 @@
+import { upgradeState } from "../src/billing-model.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -191,7 +192,7 @@ test("backup validates then merges idempotently; local changes win", () => {
   start(s);
   timerAction(s, { type: "stop", expected: "t1" }, 4000);
   const backup = JSON.parse(JSON.stringify(s));
-  assert.deepEqual(validateBackup(backup), backup);
+  assert.deepEqual(validateBackup(backup), upgradeState(structuredClone(backup)));
   const target = fresh();
   mergeBackup(target, backup);
   target.projects[0].name = "עודכן";
@@ -205,7 +206,7 @@ test("invalid backups rejected without mutation", () => {
   for (const bad of [
     null,
     {},
-    { ...s, version: 2 },
+    { ...s, version: 3 },
     { ...s, clients: [s.clients[0], s.clients[0]] },
     { ...s, projects: [{ ...s.projects[0], clientId: "missing" }] },
     {

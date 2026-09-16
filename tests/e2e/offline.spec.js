@@ -51,7 +51,9 @@ test("production build installs service worker and works offline with IndexedDB"
 test("normal browser profile is installable and timer survives complete browser restart", async () => {
   const profile = await fs.mkdtemp(path.resolve("../../work/pwa-profile-"));
   let context = await chromium.launchPersistentContext(profile, {
-    channel: "chrome",
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, args: ["--no-sandbox"] }
+      : { channel: "chrome" }),
     headless: true,
   });
   try {
@@ -87,7 +89,9 @@ test("normal browser profile is installable and timer survives complete browser 
     ).toBeVisible();
     await context.close();
     context = await chromium.launchPersistentContext(profile, {
-      channel: "chrome",
+      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, args: ["--no-sandbox"] }
+      : { channel: "chrome" }),
       headless: true,
     });
     page = await context.newPage();

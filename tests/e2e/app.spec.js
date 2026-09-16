@@ -43,6 +43,7 @@ test("complete Hebrew workflow: customer > project > timer > reload > pause/resu
   page.on("pageerror", (e) => errors.push(e.message));
   await setup(page);
   await page.getByLabel("תיאור המשימה", { exact: true }).fill("אפיון מסך הבית");
+  await page.getByLabel("סיווג הזמן", { exact: true }).selectOption("billable");
   await page.getByRole("button", { name: "התחל מדידה", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "השהיה", exact: true }),
@@ -87,6 +88,8 @@ test("complete Hebrew workflow: customer > project > timer > reload > pause/resu
   await page.getByLabel("עד תאריך", { exact: true }).fill("2026-09-30");
   await expect(page.locator(".metrics")).toContainText("1.5");
   await expect(page.locator(".metrics")).toContainText("375");
+  await page.getByLabel("פרויקט", { exact: true }).selectOption({ label: "אתר חדש" });
+  await page.getByRole("button", { name: "תצוגה מקדימה", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "ייצוא CSV", exact: true }).click();
   const dl = await downloadPromise;

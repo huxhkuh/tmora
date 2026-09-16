@@ -1,0 +1,105 @@
+.billing-badge {
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+  background: var(--cream);
+}
+.billing-badge.billable {
+  background: #e1ebdc;
+  color: #284528;
+}
+.billing-badge.unclassified {
+  background: #f7e8cb;
+  color: #72551c;
+}
+.budget-alert {
+  border-inline-start: 3px solid #b88633;
+  padding: 10px 16px;
+  margin: 10px 0;
+  background: var(--surface);
+  font-size: 14px;
+}
+.timer-billing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+.timer-billing select {
+  width: auto;
+  min-width: 125px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.billing-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.billing-metrics .small-metric {
+  font-size: 18px;
+}
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 20px 0;
+}
+.report-preview {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.report-preview .client-report {
+  min-width: 610px;
+}
+@media (max-width: 850px) {
+  .billing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .billing-metrics {
+    grid-template-columns: 1fr;
+  }
+  .report-actions .button {
+    width: 100%;
+  }
+  .entry-status {
+    display: block;
+    padding-inline-start: 0 !important;
+  }
+}
+@media print {
+  body:has(.client-report-section) {
+    background: white !important;
+  }
+  body:has(.client-report-section) .sidebar,
+  body:has(.client-report-section) .skip-link,
+  body:has(.client-report-section) .main > :not(.client-report-section),
+  body:has(.client-report-section)
+    .client-report-section
+    > :not(.report-preview),
+  body:has(.client-report-section) .toast,
+  body:has(.client-report-section) dialog {
+    display: none !important;
+  }
+  body:has(.client-report-section) .app-shell,
+  body:has(.client-report-section) .main,
+  body:has(.client-report-section) .client-report-section,
+  body:has(.client-report-section) .report-preview {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    background: white !important;
+    max-width: none !important;
+    overflow: visible !important;
+  }
+  .report-preview .client-report {
+    min-width: 0;
+  }
+}

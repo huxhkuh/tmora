@@ -18,7 +18,7 @@ import {
   timerSegments,
   dayKey,
 } from "./domain.js";
-import { read } from "./store.js";
+import { read, readBeforeUpgrade } from "./store.js";
 export default function Settings({ state, mutate, notify }) {
   const [pending, setPending] = useState(null),
     [busy, setBusy] = useState(false),
@@ -117,6 +117,14 @@ export default function Settings({ state, mutate, notify }) {
           {tr("ייצוא גיבוי מלא")}
         </Button>
         <hr />
+        <Button onClick={async () => {
+          try {
+            const original = await readBeforeUpgrade();
+            if (!original) { notify(tr("אין גיבוי מלפני השדרוג במכשיר הזה.")); return; }
+            download("temura-before-billing-upgrade.json", JSON.stringify(original, null, 2), "application/json");
+          } catch (error) { notify(error.message, true); }
+        }}>{tr("הורדת הנתונים מלפני השדרוג")}</Button>
+        <p className="note">{tr("רישומים ישנים סומנו כטרם סווג. התעריפים והזמנים המקוריים נשמרו.")}</p>
         <label className="field">
           <span>{tr("בחירת קובץ גיבוי לשחזור")}</span>
           <input

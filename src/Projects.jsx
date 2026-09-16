@@ -4,6 +4,7 @@ import { Plus, Pencil, Play, Folder, ArrowUpLeft, Trash2 } from "lucide-react";
 import { Button, Dot, Empty } from "./ui.jsx";
 import { duration, hours, money, HOUR, timerSegments } from "./domain.js";
 import ProjectChecklist from "./ProjectChecklist.jsx";
+import { budgetState, exactDuration } from "./billing.js";
 export default function Projects({
   state,
   now,
@@ -63,7 +64,8 @@ export default function Projects({
                 (state.timer?.projectId === p.id
                   ? duration(timerSegments(state.timer, now))
                   : 0),
-              over = p.goal && ms / HOUR > p.goal;
+              budget = budgetState(p, ms),
+              over = budget.overMs > 0;
             return (
               <article
                 className="project-card"
@@ -75,16 +77,21 @@ export default function Projects({
                     <Folder size={23} />
                   </span>
                   <div className="entity-actions">
-                  <button
-                    className="icon-button"
-                    aria-label={tr("עריכת פרויקט {0}", [p.name])}
-                    onClick={() => edit(p)}
-                  >
-                    <Pencil size={17} />
-                  </button>
-                  <button className="icon-button danger" aria-label={tr("מחיקת פרויקט {0}", [p.name])} title={tr("מחיקת פרויקט")} onClick={() => removeProject(p.id)}>
-                    <Trash2 size={17} />
-                  </button>
+                    <button
+                      className="icon-button"
+                      aria-label={tr("עריכת פרויקט {0}", [p.name])}
+                      onClick={() => edit(p)}
+                    >
+                      <Pencil size={17} />
+                    </button>
+                    <button
+                      className="icon-button danger"
+                      aria-label={tr("מחיקת פרויקט {0}", [p.name])}
+                      title={tr("מחיקת פרויקט")}
+                      onClick={() => removeProject(p.id)}
+                    >
+                      <Trash2 size={17} />
+                    </button>
                   </div>
                 </div>
                 <p className="muted">
@@ -128,23 +135,46 @@ export default function Projects({
                     {money(p.price)}
                   </p>
                 )}
-                {p.goal && (
+                {p.goal !== null && p.goal !== undefined && (
                   <div className={`goal ${over ? "over" : ""}`}>
                     <div>
                       <span>
-                        {over ? tr("חריגה מיעד השעות") : tr("התקדמות ליעד")}
+                        {over
+                          ? tr("חריגה מתקציב השעות")
+                          : tr("ניצול תקציב השעות")}
                       </span>
-                      <bdi>
+                      <bdi dir="ltr">
                         {hours(ms)} / {p.goal}
                         {tr(" שע׳")}
                       </bdi>
                     </div>
                     <progress
-                      value={Math.min(ms / HOUR, p.goal)}
-                      max={p.goal}
+                      value={
+                        p.goal === 0
+                          ? ms > 0
+                            ? 1
+                            : 0
+                          : Math.min(ms / HOUR, p.goal)
+                      }
+                      max={p.goal || 1}
                       aria-label={tr("התקדמות ליעד של {0}", [p.name])}
                     />
+                    <p>
+                      {tr("נוצלו")}: <bdi>{exactDuration(ms)}</bdi>
+                    </p>
+                    <p>
+                      {tr("יתרה")}:{" "}
+                      <bdi>{exactDuration(budget.remainingMs)}</bdi> ·{" "}
+                      {tr("חריגה")}: <bdi>{exactDuration(budget.overMs)}</bdi>
+                    </p>
                   </div>
+                )}
+                {p.priceType === "fixed" && (
+                  <p className="note">
+                    {tr(
+                      "התמורה האפקטיבית מחושבת מכל זמן העבודה; הוצאות ומסים אינם מנוכים.",
+                    )}
+                  </p>
                 )}
                 <ProjectChecklist
                   project={p}
@@ -219,12 +249,17 @@ export function Clients({ state, edit, create, removeClient }) {
                   </small>
                 </div>
                 <div className="entity-actions">
-                <Button icon={Pencil} onClick={() => edit(c)}>
-                  {tr("עריכה")}
-                </Button>
-                <button className="icon-button danger" aria-label={tr("מחיקת לקוח {0}", [c.name])} title={tr("מחיקת לקוח")} onClick={() => removeClient(c.id)}>
-                  <Trash2 size={18} />
-                </button>
+                  <Button icon={Pencil} onClick={() => edit(c)}>
+                    {tr("עריכה")}
+                  </Button>
+                  <button
+                    className="icon-button danger"
+                    aria-label={tr("מחיקת לקוח {0}", [c.name])}
+                    title={tr("מחיקת לקוח")}
+                    onClick={() => removeClient(c.id)}
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               </div>
             ))}

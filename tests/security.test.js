@@ -1,3 +1,4 @@
+import { upgradeState } from "../src/billing-model.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -61,7 +62,7 @@ test("hostile backups reject prototype keys, null records, deep nesting and unre
     const target = fresh(); assert.throws(() => mergeBackup(target, bad)); assert.deepEqual(target, fresh());
   }
   assert.equal({}.polluted, undefined);
-  assert.deepEqual(validateBackup(fixture()), fixture());
+  assert.deepEqual(validateBackup(fixture()), upgradeState(fixture()));
 });
 test("CSV neutralizes spreadsheet formulas even after whitespace and control characters", () => {
   for (const text of ["=1+1", "  =1+1", "\n=1+1", "\t@SUM(1)", "\r+1", " -1+2"]) {
