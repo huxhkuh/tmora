@@ -1,0 +1,188 @@
+name: Windows release
+
+on:
+  push:
+    branches: [main, 'release/**']
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/release-windows.yml
+      - scripts/publish-release.mjs
+      - tests/windows-release-upgrade.mjs
+      - docs/releases/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: Build and verify Windows
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Resolve absolute artifact paths
+        id: paths
+        run: node scripts/release-paths.mjs
+      - name: Install dependencies
+        run: npm ci
+      - name: Unit tests
+        run: npm test
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Build Windows setup and portable payload
+        run: npm run build:windows
+      - name: Browser tests
+        run: npm run test:e2e -- --workers=2
+      - name: Test and build bootstrapper
+        shell: powershell
+        run: |
+          ./scripts/test-installer.ps1
+          ./scripts/build-installer.ps1
+          ./scripts/prepare-release.ps1
+      - name: Validate release hashes and update metadata
+        run: node tests/release-assets.mjs
+      - name: Verify production fuses and create isolated test copy
+        run: |
+          New-Item -ItemType Directory -Force ../../work | Out-Null
+          node scripts/security-test-copy.mjs
+      - name: Packaged desktop tests
+        run: |
+          $env:BOU_TEST_EXE = (Get-Content ../../work/security-test-exe.txt -Raw).Trim()
+          node tests/desktop-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/desktop-compact.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/desktop-checklist.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/desktop-security.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/asar-integrity.mjs
+      - name: Real installer upgrade and schema migration
+        run: node tests/windows-release-upgrade.mjs
+      - name: Install native UI test dependencies
+        run: python -m pip install pywinauto psutil Pillow
+      - name: Unmodified production and portable launch
+        run: |
+          python tests/windows-hardened.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/windows-portable.py
+      - name: Generate and verify download pages
+        run: |
+          npm run build:site
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:site
+      - name: Save verified release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            ${{ steps.paths.outputs.release }}/Temura-Install.exe
+            ${{ steps.paths.outputs.release }}/Bou-Install.exe
+            ${{ steps.paths.outputs.release }}/Bou-Time-*-x64-Setup.exe
+            ${{ steps.paths.outputs.release }}/Bou-Time-*-x64-Portable.exe
+            ${{ steps.paths.outputs.release }}/Bou-Time-*-x64-Setup.exe.blockmap
+            ${{ steps.paths.outputs.release }}/latest.yml
+            ${{ steps.paths.outputs.release }}/windows-release.json
+            ${{ steps.paths.outputs.release }}/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Save generated download pages
+        uses: actions/upload-artifact@v4
+        with:
+          name: download-pages
+          path: |
+            docs/index.html
+            docs/en.html
+            docs/downloads.json
+          retention-days: 14
+      - name: Save test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-evidence
+          path: |
+            ${{ steps.paths.outputs.evidence }}/**/*.png
+            ${{ steps.paths.outputs.evidence }}/**/*.pdf
+            ${{ steps.paths.outputs.evidence }}/playwright-results/**
+            work/download-site-qa/**/*.png
+            ${{ steps.paths.outputs.parent }}/windows-*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
+  publish:
+    name: Publish verified release
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Resolve absolute artifact paths
+        id: paths
+        run: node scripts/release-paths.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: ${{ steps.paths.outputs.release }}
+      - name: Revalidate downloaded artifacts
+        run: node tests/release-assets.mjs
+      - name: Upload draft, verify every asset, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish-release.mjs
+      - name: Verify public downloads and historical update redirects
+        run: node tests/release-assets.mjs --public
+
+  verify-public-feed:
+    name: Verify installed app public update feed
+    needs: publish
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Resolve absolute artifact paths
+        id: paths
+        run: node scripts/release-paths.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: ${{ steps.paths.outputs.release }}
+      - name: Install verified payload on disposable runner
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $target = [IO.Path]::GetFullPath("$PWD/../windows/win-unpacked")
+          $installer = [IO.Path]::GetFullPath("$PWD/../windows/Bou-Time-$version-x64-Setup.exe")
+          $process = Start-Process -FilePath $installer -ArgumentList "/S /currentuser /D=$target" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Installation failed' }
+          New-Item -ItemType Directory -Force ../../work | Out-Null
+          node scripts/security-test-copy.mjs
+      - name: Check and download update through the production provider
+        run: |
+          $env:BOU_FEED_EXPECTED_VERSION = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          node tests/release-feed-download.mjs
