@@ -2,6 +2,12 @@ import { tr } from "./i18n.js";
 import React, { useState } from "react";
 import { Button, Field, ProjectOptions } from "./ui.jsx";
 import {
+  BILLING_STATUSES,
+  billingStatus,
+  parseThresholds,
+} from "./billing-model.js";
+import { statusLabel } from "./billing.js";
+import {
   uid,
   dayKey,
   clockKey,
@@ -89,6 +95,9 @@ export function ClientForm({ item, mutate, close }) {
   );
 }
 export function ProjectForm({ item, state, mutate, close }) {
+  const [thresholds, setThresholds] = useState(
+    (item?.budgetAlerts ?? [80, 100]).join(", "),
+  );
   const [v, setV] = useState(
     item || {
       id: uid(),
@@ -119,8 +128,11 @@ export function ProjectForm({ item, state, mutate, close }) {
               Number(v.price) < 0)
           )
             throw Error(tr("יש להזין מחיר תקין."));
-          if (v.goal !== null && !(Number(v.goal) > 0))
-            throw Error(tr("יעד השעות צריך להיות חיובי."));
+          if (
+            v.goal !== null &&
+            (!Number.isFinite(Number(v.goal)) || Number(v.goal) < 0)
+          )
+            throw Error(tr("תקציב השעות צריך להיות אפס או מספר חיובי."));
           if (v.archived && s.timer?.projectId === v.id)
             throw Error(tr("יש לעצור ולשמור את הטיימר לפני העברה לארכיון."));
           const old = s.projects.find((p) => p.id === v.id);
@@ -130,6 +142,7 @@ export function ProjectForm({ item, state, mutate, close }) {
             name: v.name.trim(),
             price: v.priceType === "none" ? null : Number(v.price),
             goal: v.goal === null ? null : Number(v.goal),
+            budgetAlerts: parseThresholds(thresholds),
           };
           if (old) Object.assign(old, p);
           else s.projects.push(p);
@@ -213,16 +226,34 @@ export function ProjectForm({ item, state, mutate, close }) {
           "תעריף חדש חל על רישומים חדשים בלבד. התעריף של מדידה שכבר התחילה נשמר.",
         )}
       </p>
-      <Field label={tr("יעד שעות (לא חובה)")}>
+      <Field
+        label={tr("תקציב שעות (לא חובה)")}
+        hint={tr(
+          "ריק = ללא תקציב. אפס = כל זמן עבודה הוא חריגה. התקציב כולל גם זמן פנימי וטיימר פעיל.",
+        )}
+      >
         <input
           type="number"
-          min="0.01"
+          min="0"
           max="100000"
           step="0.01"
           value={v.goal ?? ""}
           onChange={(e) =>
             set("goal", e.target.value === "" ? null : e.target.value)
           }
+        />
+      </Field>
+      <Field
+        label={tr("התראות ניצול באחוזים")}
+        hint={tr(
+          "למשל 80, 100. ניתן להוסיף ספים מעל 100 או להשאיר ריק לביטול ההתראות.",
+        )}
+      >
+        <input
+          value={thresholds}
+          onChange={(e) => setThresholds(e.target.value)}
+          placeholder="80, 100"
+          dir="ltr"
         />
       </Field>
       <label className="check">
@@ -246,6 +277,8 @@ export function EntryForm({ item, state, mutate, close }) {
     projectId:
       item?.projectId || state.projects.find((p) => !p.archived)?.id || "",
     description: item?.description || "",
+    billingStatus: billingStatus(item ?? {}),
+    internalNotes: item?.internalNotes ?? "",
     date: dayKey(a),
     start: clockKey(a),
     endDate: dayKey(b),
@@ -290,6 +323,8 @@ export function EntryForm({ item, state, mutate, close }) {
             id: v.id,
             projectId: v.projectId,
             description: v.description,
+            billingStatus: v.billingStatus,
+            internalNotes: v.internalNotes,
             segments,
             pricing: item && !v.newPrice ? item.pricing : pricing(p),
             createdAt: item?.createdAt ?? Date.now(),
@@ -316,6 +351,34 @@ export function EntryForm({ item, state, mutate, close }) {
           value={v.description}
           onChange={(e) => set("description", e.target.value)}
           placeholder={tr("למשל, אפיון ועיצוב מסך הבית")}
+        />
+      </Field>
+      <p className="note">
+        {tr(
+          "התיאור עשוי להופיע בדוח ללקוח. מידע פרטי יש לכתוב בהערות הפנימיות.",
+        )}
+      </p>
+      <Field label={tr("סיווג הזמן")}>
+        <select
+          value={v.billingStatus}
+          onChange={(e) => set("billingStatus", e.target.value)}
+        >
+          {BILLING_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {statusLabel(status)}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field
+        label={tr("הערות פנימיות")}
+        hint={tr("נשמרות בגיבוי האישי בלבד ולא נכללות בדוח ללקוח.")}
+      >
+        <textarea
+          maxLength={10000}
+          rows={2}
+          value={v.internalNotes}
+          onChange={(e) => set("internalNotes", e.target.value)}
         />
       </Field>
       <Field label={tr("אופן הזנת הזמן")}>
@@ -412,6 +475,9 @@ export function EntryForm({ item, state, mutate, close }) {
         <>
           <p className="note">
             {tr("התעריף המקורי נשמר גם בהעברה לפרויקט אחר.")}
+            {item.pricing.type === "hourly" && (
+              <bdi> {item.pricing.amount} ₪</bdi>
+            )}
           </p>
           <label className="check">
             <input

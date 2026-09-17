@@ -61,7 +61,7 @@ test("project budget, rate history, entry transfer, filters and explicit deletio
 }) => {
   await restore(page);
   await page.getByRole("button", { name: "פרויקטים", exact: true }).click();
-  await expect(page.getByText("חריגה מיעד השעות")).toBeVisible();
+  await expect(page.getByText("חריגה מתקציב השעות")).toBeVisible();
   await page
     .getByRole("button", { name: "עריכת פרויקט פרויקט שעתי", exact: true })
     .click();
@@ -71,6 +71,10 @@ test("project budget, rate history, entry transfer, filters and explicit deletio
   await page.getByRole("button", { name: "דוחות", exact: true }).click();
   await page.getByLabel("מתאריך", { exact: true }).fill("2026-09-01");
   await page.getByLabel("עד תאריך", { exact: true }).fill("2026-09-30");
+  await expect(page.locator(".billing-metrics")).toContainText("02:00:00");
+  await page.getByRole("button", { name: "עריכת רישום עבודה קודמת", exact: true }).click();
+  await page.getByLabel("סיווג הזמן", { exact: true }).selectOption("billable");
+  await page.getByRole("button", { name: "שמירה", exact: true }).click();
   await expect(page.locator(".metrics")).toContainText("400");
   await page
     .getByRole("button", { name: "עריכת רישום עבודה קודמת", exact: true })
@@ -120,6 +124,8 @@ test("long-open timer warns, stays accurate after clock advances, survives tab c
     page.getByRole("button", { name: "השהיה", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "השהיה", exact: true }).click();
+  // Wait for the IndexedDB transaction to commit, as reflected by the control.
+  await expect(page.getByRole("button", { name: "המשך", exact: true })).toBeVisible();
   await page.close();
   const reopened = await context.newPage();
   await reopened.goto("/");

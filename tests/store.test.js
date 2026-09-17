@@ -87,3 +87,27 @@ test("delete/start and delete/task races remain atomic without orphan records", 
     for(const task of after.tasks) assert.ok(after.projects.some(p=>p.id===task.projectId));
   }
 });
+
+test('v1 migration and its exact recovery snapshot commit atomically and only once', async () => {
+  const {openDB,readBeforeUpgrade}=await import('../src/store.js');
+  const {billingDemo}=await import('./fixtures/billing.js');
+  const legacy=billingDemo();legacy.version=1;
+  for(const e of legacy.entries){delete e.billingStatus;delete e.internalNotes;}
+  const db=await openDB();
+  const writeRaw=(data)=>new Promise((resolve,reject)=>{
+    const tx=db.transaction('state','readwrite');tx.objectStore('state').put(data,'main');
+    tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error);
+  });
+  await writeRaw(legacy);
+  await assert.rejects(change(s=>{s.entries=[];throw Error('simulated write failure');}));
+  assert.equal(await readBeforeUpgrade(),null);
+  const [a,b]=await Promise.all([read(),read()]);assert.equal(a.version,2);assert.deepEqual(a,b);
+  assert.deepEqual(await readBeforeUpgrade(),legacy);
+  assert.equal(a.entries[0].billingStatus,'unclassified');
+  await change(s=>{s.entries[0].billingStatus='billable';s.entries[0].description='edited';});
+  await read();assert.deepEqual(await readBeforeUpgrade(),legacy);
+  assert.equal((await read()).entries[0].billingStatus,'billable');
+  await writeRaw({...legacy,version:99});
+  await assert.rejects(read());assert.deepEqual(await readBeforeUpgrade(),legacy);
+  await writeRaw(a);
+});

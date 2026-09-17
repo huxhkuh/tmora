@@ -5,6 +5,7 @@ import "@fontsource-variable/heebo";
 import "./style.css";
 import "./polish.css";
 import "./appearance.css";
+import "./billing.css";
 applyPreferences();
 subscribePreferences(applyPreferences);
 // The desktop clock does not need the dashboard, reports, forms or settings.

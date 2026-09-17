@@ -2,7 +2,9 @@ import { tr } from "./i18n.js";
 import React from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Empty, Dot } from "./ui.jsx";
-import { duration, hms, dayKey, clockKey, value, money } from "./domain.js";
+import { duration, hms, dayKey, clockKey, money } from "./domain.js";
+import { billingStatus } from "./billing-model.js";
+import { statusLabel, workRows, summarize } from "./billing.js";
 export default function Entries({
   entries,
   state,
@@ -25,6 +27,7 @@ export default function Entries({
             <th>{tr("פרויקט / משימה")}</th>
             <th>{tr("תאריך ושעות")}</th>
             <th>{tr("משך")}</th>
+            <th>{tr("סיווג")}</th>
             {showValue && <th>{tr("שווי שעתי")}</th>}
             <th>
               <span className="sr-only">{tr("פעולות")}</span>
@@ -71,13 +74,20 @@ export default function Entries({
                   <td className="entry-duration" data-label={tr("משך עבודה")}>
                     <bdi className="duration">{hms(duration(e.segments))}</bdi>
                   </td>
+                  <td className="entry-status" data-label={tr("סיווג")}>
+                    <span className={`billing-badge ${billingStatus(e)}`}>
+                      {statusLabel(billingStatus(e))}
+                    </span>
+                  </td>
                   {showValue && (
                     <td className="entry-value" data-label={tr("שווי שעתי")}>
-                      {e.pricing.type === "hourly"
-                        ? money(value(e))
-                        : e.pricing.type === "fixed"
-                          ? tr("מחיר כולל")
-                          : tr("ללא מחיר")}
+                      {billingStatus(e) !== "billable"
+                        ? "—"
+                        : e.pricing.type === "hourly"
+                          ? money(summarize(workRows([e])).cents / 100)
+                          : e.pricing.type === "fixed"
+                            ? tr("מחיר כולל")
+                            : tr("ללא מחיר")}
                     </td>
                   )}
                   <td className="entry-actions">

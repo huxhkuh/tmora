@@ -2,10 +2,11 @@ import { tr, locale } from "./i18n.js";
 import { validateTasks } from "./tasks.js";
 import { checkBackupTree } from "./backup-safety.js";
 import { formatHours, formatMoney } from "./number-format.js";
+import { BILLING_STATUSES, upgradeState, billingStatus } from "./billing-model.js";
 export const TZ = "Asia/Jerusalem";
 export const HOUR = 3600000;
 export const fresh = () => ({
-  version: 1,
+  version: 2,
   clients: [],
   projects: [],
   tasks: [],
@@ -124,6 +125,8 @@ export function stopTimer(s, now, expected) {
       id: t.id,
       projectId: t.projectId,
       description: t.description,
+      billingStatus: billingStatus(t),
+      internalNotes: t.internalNotes ?? "",
       segments,
       pricing: t.pricing,
       createdAt: t.createdAt,
@@ -145,6 +148,8 @@ export function timerAction(s, action, now = Date.now()) {
       id: action.id || uid(),
       projectId: p.id,
       description: action.description || "",
+      billingStatus: BILLING_STATUSES.includes(action.billingStatus) ? action.billingStatus : "unclassified",
+      internalNotes: "",
       pricing: pricing(p),
       segments: [],
       runningSince: now,
@@ -163,6 +168,7 @@ export function timerAction(s, action, now = Date.now()) {
   }
 }
 export function sliceEntries(entries, from, to) {
+  if (from > to) throw Error(tr("תאריך הסיום צריך להיות אחרי תאריך ההתחלה."));
   const start = wallTime(from, "00:00"),
     end = wallTime(addDays(to, 1), "00:00");
   return entries
@@ -228,7 +234,7 @@ export function validateBackup(input) {
   const s = structuredClone(input);
   if (
     !s ||
-    s.version !== 1 ||
+    ![1, 2].includes(s.version) ||
     !["clients", "projects", "entries"].every(
       (k) => Array.isArray(s[k]) && s[k].length < 100000,
     )
@@ -255,7 +261,9 @@ export function validateBackup(input) {
         isStr(p.description) &&
         typeof p.archived === "boolean" &&
         validPrice({ type: p.priceType, amount: p.price }) &&
-        (p.goal === null || (finite(p.goal) && p.goal > 0)),
+        (p.goal === null || p.goal === undefined || (finite(p.goal) && p.goal >= 0)) &&
+        (p.budgetAlerts === undefined || (Array.isArray(p.budgetAlerts) && p.budgetAlerts.length <= 10 &&
+          p.budgetAlerts.every((n) => finite(n) && n > 0 && n <= 1000))),
     )
   )
     throw Error(tr("פרטי הפרויקטים בגיבוי אינם תקינים."));
@@ -279,6 +287,8 @@ export function validateBackup(input) {
     validId(e.id) &&
     projects.has(e.projectId) &&
     isStr(e.description) &&
+    (e.billingStatus === undefined || BILLING_STATUSES.includes(e.billingStatus)) &&
+    (e.internalNotes === undefined || isStr(e.internalNotes)) &&
     validPrice(e.pricing) &&
     finite(e.createdAt) &&
     e.createdAt >= 0 &&
@@ -299,10 +309,11 @@ export function validateBackup(input) {
       s.entries.some((e) => e.id === s.timer.id))
   )
     throw Error(tr("הטיימר בגיבוי אינו תקין."));
-  return s;
+  return upgradeState(s);
 }
 export function mergeBackup(s, input) {
   const backup = validateBackup(input);
+  upgradeState(s);
   s.tasks ??= [];
   // Preserve local records on ID conflicts. A backup cannot restart a running timer.
   for (const k of ["clients", "projects", "entries", "tasks"]) {

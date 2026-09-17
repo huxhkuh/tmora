@@ -32,6 +32,7 @@ import DeleteEntity from "./DeleteEntity.jsx";
 import { deletionPreview } from "./deletion.js";
 import Projects, { Clients } from "./Projects.jsx";
 import Reports from "./Reports.jsx";
+import BudgetAlerts from "./BudgetAlerts.jsx";
 import Settings from "./Settings.jsx";
 import FocusTools from "./FocusTools.jsx";
 const getNav = () => [
@@ -235,6 +236,7 @@ export default function App() {
         </div>
       </aside>
       <main id="main" className="main">
+        <BudgetAlerts state={state} now={now} />
         {demo && (
           <p className="error">
             {tr("מצב הדגמה נפרד · הנתונים כאן אינם הנתונים האישיים שלך.")}{" "}

@@ -1,5 +1,6 @@
 import { tr } from "./i18n.js";
 import { fresh } from "./domain.js";
+import { upgradeState } from "./billing-model.js";
 export const demo =
   typeof location !== "undefined" &&
   new URLSearchParams(location.search).get("demo") === "1";
@@ -24,8 +25,38 @@ export function openDB() {
 export async function read() {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const req = db.transaction("state").objectStore("state").get("main");
-    req.onsuccess = () => resolve(req.result || fresh());
+    const tx = db.transaction("state", "readwrite", { durability: "strict" });
+    const store = tx.objectStore("state");
+    const req = store.get("main");
+    let next, failure;
+    req.onsuccess = () => {
+      try {
+        next = prepare(store, req.result);
+        if (req.result?.version === 1) store.put(next, "main");
+      } catch (e) {
+        failure = e;
+        tx.abort();
+      }
+    };
+    tx.oncomplete = () => resolve(next);
+    tx.onabort = () => reject(failure || tx.error);
+    tx.onerror = () => {};
+  });
+}
+function prepare(store, original) {
+  if (!original) return fresh();
+  // The snapshot and upgraded main record commit together or both roll back.
+  if (original.version === 1) store.put(original, "before-billing-v2");
+  return upgradeState(structuredClone(original));
+}
+export async function readBeforeUpgrade() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = db
+      .transaction("state")
+      .objectStore("state")
+      .get("before-billing-v2");
+    req.onsuccess = () => resolve(req.result ?? null);
     req.onerror = () => reject(req.error);
   });
 }
@@ -38,8 +69,9 @@ export async function change(fn) {
     const req = store.get("main");
     req.onsuccess = () => {
       try {
-        next = req.result || fresh();
+        next = prepare(store, req.result);
         fn(next);
+        upgradeState(next);
         next.revision++;
         store.put(next, "main");
       } catch (e) {

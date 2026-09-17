@@ -35,6 +35,7 @@ test("English workflow, theme, persistence, tabs, mobile and Hebrew return", asy
   await page.getByLabel("Pricing", { exact: true }).selectOption("hourly");
   await page.getByLabel("Hourly rate (ILS)", { exact: true }).fill("240");
   await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByLabel("Time classification", { exact: true }).selectOption("billable");
   await page.getByRole("button", { name: "Start timer", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Pause", exact: true }),
@@ -44,10 +45,12 @@ test("English workflow, theme, persistence, tabs, mobile and Hebrew return", asy
   await page.getByRole("button", { name: "Resume", exact: true }).click();
   await page.getByRole("button", { name: "Stop & save", exact: true }).click();
   await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await page.getByLabel("Project", { exact: true }).selectOption({ label: "English & עברית" });
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV", exact: true }).click();
   const text = await fs.readFile(await (await download).path(), "utf8");
-  expect(text).toContain("Exact hours");
+  expect(text).toContain("שעות מדויקות");
   expect(text).toContain("English & עברית");
   await page.getByRole("button", { name: "Projects", exact: true }).click();
   await page.getByText("Tasks", { exact: true }).click();

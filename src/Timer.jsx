@@ -3,6 +3,11 @@ import React, { useState, useRef } from "react";
 import { Play, Pause, Square, ArrowUpLeft, Clock3 } from "lucide-react";
 import { Button, ProjectOptions, Dot } from "./ui.jsx";
 import { elapsed, hms, HOUR, timerAction } from "./domain.js";
+import {
+  BILLING_STATUSES,
+  billingStatus as statusOf,
+} from "./billing-model.js";
+import { statusLabel } from "./billing.js";
 export default function Timer({
   state,
   now,
@@ -13,6 +18,7 @@ export default function Timer({
 }) {
   const intent = useRef(null);
   const [project, setProject] = useState(""),
+    [billingStatus, setBillingStatus] = useState("unclassified"),
     [description, setDescription] = useState(""),
     [busy, setBusy] = useState(false);
   const t = state.timer,
@@ -24,6 +30,7 @@ export default function Timer({
     type,
     projectId: selected,
     description,
+    billingStatus,
     expected: t?.id ?? null,
   });
   const arm = (type) => () => {
@@ -109,6 +116,35 @@ export default function Timer({
               <p>{tr("הפרויקט הראשון שלך הוא נקודת ההתחלה.")}</p>
             )}
           </>
+        )}
+        {selected && (
+          <label className="timer-billing">
+            {tr("סיווג הזמן")}
+            <select
+              aria-label={tr("סיווג הזמן")}
+              value={t ? statusOf(t) : billingStatus}
+              onChange={async (e) => {
+                const status = e.target.value;
+                if (!t) {
+                  setBillingStatus(status);
+                  return;
+                }
+                try {
+                  await mutate((s) => {
+                    if (s.timer?.id === t.id) s.timer.billingStatus = status;
+                  });
+                } catch (error) {
+                  notify(error.message, true);
+                }
+              }}
+            >
+              {BILLING_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabel(status)}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
         {t && now - t.createdAt > 12 * HOUR && (
           <p className="timer-warning" role="status">
