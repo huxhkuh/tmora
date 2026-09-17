@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: windows-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -32,6 +32,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Resolve absolute artifact paths
+        id: paths
+        run: node scripts/release-paths.mjs
       - name: Install dependencies
         run: npm ci
       - name: Unit tests
@@ -85,14 +88,14 @@ jobs:
         with:
           name: windows-release
           path: |
-            ../windows/Temura-Install.exe
-            ../windows/Bou-Install.exe
-            ../windows/Bou-Time-*-x64-Setup.exe
-            ../windows/Bou-Time-*-x64-Portable.exe
-            ../windows/Bou-Time-*-x64-Setup.exe.blockmap
-            ../windows/latest.yml
-            ../windows/windows-release.json
-            ../windows/SHA256SUMS.txt
+            ${{ steps.paths.outputs.release }}/Temura-Install.exe
+            ${{ steps.paths.outputs.release }}/Bou-Install.exe
+            ${{ steps.paths.outputs.release }}/Bou-Time-*-x64-Setup.exe
+            ${{ steps.paths.outputs.release }}/Bou-Time-*-x64-Portable.exe
+            ${{ steps.paths.outputs.release }}/Bou-Time-*-x64-Setup.exe.blockmap
+            ${{ steps.paths.outputs.release }}/latest.yml
+            ${{ steps.paths.outputs.release }}/windows-release.json
+            ${{ steps.paths.outputs.release }}/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
       - name: Save generated download pages
@@ -110,11 +113,11 @@ jobs:
         with:
           name: windows-test-evidence
           path: |
-            ../../work/**/*.png
-            ../../work/**/*.pdf
-            ../../work/playwright-results/**
+            ${{ steps.paths.outputs.evidence }}/**/*.png
+            ${{ steps.paths.outputs.evidence }}/**/*.pdf
+            ${{ steps.paths.outputs.evidence }}/playwright-results/**
             work/download-site-qa/**/*.png
-            ../windows-*.png
+            ${{ steps.paths.outputs.parent }}/windows-*.png
           if-no-files-found: ignore
           retention-days: 14
 
@@ -133,10 +136,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Resolve absolute artifact paths
+        id: paths
+        run: node scripts/release-paths.mjs
       - uses: actions/download-artifact@v4
         with:
           name: windows-release
-          path: ../windows
+          path: ${{ steps.paths.outputs.release }}
       - name: Revalidate downloaded artifacts
         run: node tests/release-assets.mjs
       - name: Upload draft, verify every asset, then publish
@@ -160,10 +166,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Resolve absolute artifact paths
+        id: paths
+        run: node scripts/release-paths.mjs
       - uses: actions/download-artifact@v4
         with:
           name: windows-release
-          path: ../windows
+          path: ${{ steps.paths.outputs.release }}
       - name: Install verified payload on disposable runner
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
