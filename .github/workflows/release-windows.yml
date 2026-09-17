@@ -44,7 +44,7 @@ jobs:
       - name: Build Windows setup and portable payload
         run: npm run build:windows
       - name: Browser tests
-        run: npm run test:e2e -- --workers=2
+        run: npm run test:e2e -- --workers=2 --forbid-only
       - name: Test and build bootstrapper
         shell: powershell
         run: |

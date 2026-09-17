@@ -58,6 +58,10 @@ test("project checklist CRUD, tab sync, project edit, reload, full backup/restor
   await site.getByRole("button", { name: "עריכת פרויקט עיצוב האתר" }).click();
   await page.getByRole("textbox", { name: "שם הפרויקט", exact: true }).fill("האתר החדש");
   await page.getByRole("button", { name: "שמירה", exact: true }).click();
+  // A click dispatches the async save; the dialog closes only after its
+  // IndexedDB transaction commits. Do not abort that transaction with reload.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(card(page, "האתר החדש")).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "פרויקטים", exact: true }).click();
   const renamed = await openList(page, "האתר החדש");
