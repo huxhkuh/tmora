@@ -2,6 +2,35 @@
 
 Requires Windows 10/11 x64, Node.js 22.12+ (or a supported newer version), npm, Git, and GitHub CLI authenticated with permission to publish releases to `huxhkuh/tmora`. The bootstrapper uses the .NET Framework compiler bundled with Windows. No signing certificate is configured.
 
+## GitHub Actions release (1.6.0+)
+
+The `Windows release` workflow builds on `windows-2022`. Push release preparation
+to a `release/**` branch to run validation without publishing. It checks unit and
+browser tests, bootstrapper validation, the hardened packaged app, portable
+startup, a real 1.5.5 NSIS upgrade/reinstall with 1,000 sample records and a running
+timer, schema recovery, Hebrew reports and the generated download pages.
+
+After the release branch passes, merge it into `main`. A change to the version,
+workflow, publisher, upgrade test or release notes reruns the gate. Only a successful
+`main` build may publish. The publishing job requires `contents: write` and uses
+the built-in Actions token. It uploads exactly eight assets to a draft, compares
+their sizes and SHA-256 digests, and then makes the release public. An existing
+version or a changed `main` blocks publication; published files are never replaced.
+The manual workflow entry also runs these same checks.
+
+The native upgrade test is restricted to a disposable GitHub-hosted runner. It
+does not perform an installation on the developer's Windows account. Test copies
+enable only the debugger fuse, and none are included in release assets.
+
+After publication, commit the generated `docs/downloads.json`, `docs/index.html`
+and `docs/en.html` from the `download-pages` artifact (or regenerate using the exact
+published asset sizes), then verify the Pages deployment. Commits made by the
+Actions token do not automatically trigger Pages; use the normal repository
+connection for this final source update. Check the packaged app's real public
+feed with `tests/release-feed-download.mjs` as described below.
+
+## Manual Windows release
+
 1. Update `version` in `package.json` and run `npm install --package-lock-only`.
 2. Run `npm ci`, `npm test`, `npm run build`, `npm run test:desktop:compact`, and `powershell -ExecutionPolicy Bypass -File scripts/test-installer.ps1`.
 3. Run `npm run build:windows`. Artifacts are written to `../windows`.
