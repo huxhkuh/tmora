@@ -33,7 +33,8 @@ const expected = await Promise.all(names.map(async name => {
 console.log(gh('release', 'create', tag, ...names.map(n => path.join('../windows', n)),
   '--repo', repository, '--target', commit, '--draft', '--title', `תמורה ${version} — תקציבי שעות ודוחות ללקוח`,
   '--notes-file', notes));
-const draft = api(`releases/tags/${tag}`);
+const draft = JSON.parse(gh('api', '--paginate', '--slurp', `repos/${repository}/releases?per_page=100`)).flat().find(r => r.tag_name === tag);
+assert(draft, 'Uploaded draft is missing');
 assert.equal(draft.draft, true);
 assert.equal(draft.target_commitish, commit);
 assert.equal(draft.assets.length, names.length);

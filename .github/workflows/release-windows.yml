@@ -145,3 +145,35 @@ jobs:
         run: node scripts/publish-release.mjs
       - name: Verify public downloads and historical update redirects
         run: node tests/release-assets.mjs --public
+
+  verify-public-feed:
+    name: Verify installed app public update feed
+    needs: publish
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: ../windows
+      - name: Install verified payload on disposable runner
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $target = [IO.Path]::GetFullPath("$PWD/../windows/win-unpacked")
+          $installer = [IO.Path]::GetFullPath("$PWD/../windows/Bou-Time-$version-x64-Setup.exe")
+          $process = Start-Process -FilePath $installer -ArgumentList "/S /currentuser /D=$target" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Installation failed' }
+          New-Item -ItemType Directory -Force ../../work | Out-Null
+          node scripts/security-test-copy.mjs
+      - name: Check and download update through the production provider
+        run: |
+          $env:BOU_FEED_EXPECTED_VERSION = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          node tests/release-feed-download.mjs
