@@ -64,6 +64,40 @@ verify GitHub download responses. The full setup and portable links are versione
 the small installer uses the latest-release alias. Keep all compatibility file
 names intact. Do not describe checksums as publisher signatures.
 
+## Search visibility
+
+The primary search intent is personal time tracking for freelancers: Hebrew
+`מעקב שעות עבודה`, `תוכנה למעקב שעות בעברית`, and client work reports; English
+`free time tracking for freelancers`. Keep claims aligned with actual Windows
+features. This is not an employee attendance system or a cloud team service.
+
+`npm run build:site` generates both pages and `docs/sitemap.xml`. Each language
+has its own title, description and canonical URL. The HTML and sitemap use the
+same reciprocal Hebrew/English hreflang links and Hebrew fallback (`x-default`).
+Titles, H1s, introductory copy and FAQ answers describe the product naturally.
+Do not add keyword lists, hidden search text, fabricated reviews or doorway pages.
+
+JSON-LD describes the visible free Windows application and each landing page.
+There are no real app reviews yet, so this markup does not satisfy Google's
+rating/review requirement for SoftwareApplication rich results. Do not invent
+a rating to remove that eligibility warning. FAQ content is ordinary visible
+HTML, not a claim to a Google FAQ rich result.
+
+Submit `https://huxhkuh.github.io/tmora/sitemap.xml` in the verified URL-prefix
+Search Console property, then request indexing for `/tmora/` and `/tmora/en.html`.
+Keep `docs/googled08e15c4d370b13b.html` in place. Submission and indexing requests
+do not guarantee indexing or ranking. Monitor actual queries and impressions in
+Search Console; this project has no analytics or Search Console credentials.
+
+Google reads robots.txt only at the host root (`https://huxhkuh.github.io/robots.txt`),
+not `/tmora/robots.txt`. The host-root file currently returns 404, so there is no
+robots.txt crawl block. Do not add an ineffective project-subdirectory robots.txt
+or modify a separate host-root repository as part of this site. Search Console
+is the sitemap submission path for this project.
+
+Run `node --test tests/download-seo.test.js` to check canonical/hreflang consistency,
+metadata, truthful JSON-LD, sitemap membership and the verification file.
+
 ### Publication check, 2026-09-10
 
 The redesign was deployed successfully. Public language navigation, layouts and
